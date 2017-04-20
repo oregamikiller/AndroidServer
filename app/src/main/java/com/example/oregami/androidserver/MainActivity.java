@@ -3,6 +3,9 @@ package com.example.oregami.androidserver;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.hardware.Camera;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -18,7 +21,6 @@ import com.yanzhenjie.andserver.RequestHandler;
 import android.content.res.AssetManager;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.Button;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.entity.StringEntity;
@@ -28,6 +30,8 @@ import android.view.SurfaceView;
 import android.widget.FrameLayout;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.Toast;
+
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -39,7 +43,6 @@ public class MainActivity extends AppCompatActivity {
     private AssetManager mAssetManager;
     private static final String TAG = "CamTestActivity";
     Preview preview;
-    Button buttonClick;
     Camera camera;
     Activity act;
     Context ctx;
@@ -95,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
         if(numCams > 0){
             try{
                 camera = Camera.open(0);
+                camera.setDisplayOrientation(90);
                 camera.startPreview();
                 preview.setCamera(camera);
             } catch (RuntimeException ex){
@@ -150,8 +154,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected Void doInBackground(byte[]... data) {
             FileOutputStream outStream = null;
-            Log.d(TAG, "here");
-            // Write to SD Card
             try {
                 File sdCard = Environment.getExternalStorageDirectory();
                 File dir = new File (sdCard.getAbsolutePath() + "/camtest");
@@ -159,9 +161,21 @@ public class MainActivity extends AppCompatActivity {
 
                 String fileName = String.format("%d.jpg", System.currentTimeMillis());
                 File outFile = new File(dir, fileName);
-                Log.d(TAG, "here1");
                 outStream = new FileOutputStream(outFile);
-                outStream.write(data[0]);
+                BufferedOutputStream bos =
+                        new BufferedOutputStream(outStream);
+                Bitmap bMap = BitmapFactory.decodeByteArray(data[0], 0, data[0].length);
+                Bitmap bMapRotate;
+
+                Matrix matrix = new Matrix();
+                matrix.reset();
+                matrix.postRotate(90);
+                bMapRotate = Bitmap.createBitmap(bMap, 0, 0, bMap.getWidth(),
+                        bMap.getHeight(), matrix, true);
+                bMap = bMapRotate;
+                bMap.compress(Bitmap.CompressFormat.JPEG, 100, bos);
+
+//              outStream.write(data[0]);
                 outStream.flush();
                 outStream.close();
 
@@ -172,6 +186,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, e.getMessage());
                 e.printStackTrace();
             } catch (IOException e) {
+                Log.d(TAG, "here3");
                 Log.d(TAG, e.getMessage());
                 e.printStackTrace();
             } finally {
@@ -181,34 +196,6 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    void optCamera() {
-        try {
-            Log.d("dddddddd" ,""+Camera.getNumberOfCameras());
-                try {
-                    if (camera != null){
-                        camera.stopPreview();
-                        preview.setCamera(null);
-                        camera.release();
-                        camera = null;
-
-                        }
-                } catch (Exception e) {
-                    Log.d("ddddddddddddddd", e.getMessage());
-                }
-
-            camera = Camera.open(0);
-            camera.startPreview();
-            preview.setCamera(camera);
-//            camera.takePicture(shutterCallback, rawCallback, jpegCallback);
-//            camera.stopPreview();
-//            camera.release();
-        } catch (Exception e) {
-            e.printStackTrace();
-            Log.d("ddddddddddddddd", e.getMessage());
-        }
-    }
-
-
     class RequestLoginHandler implements RequestHandler {
 
         @Override
@@ -216,12 +203,7 @@ public class MainActivity extends AppCompatActivity {
             Message msg = new Message();
             msg.what = 1;
             handler.sendMessage(msg);
-
-
-//            optCamera();
             StringEntity stringEntity = new StringEntity("my android server resp", "utf-8");
-//            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-//            startActivityForResult(intent, 1);
             res.setEntity(stringEntity);
 
         }
